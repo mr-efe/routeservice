@@ -83,7 +83,13 @@ void MacDService::onNewTcpConnection()
 
 void MacDService::onTcpPollTimer()
 {
-    if(mTcpServer.isListening() || mTcpServer.listen(QHostAddress::AnyIPv4, MACD_TCP_PORT)) {
+    bool listening = mTcpServer.isListening();
+    if(!listening) {
+        connect(&mTcpServer, SIGNAL(newConnection()), this, SLOT(onNewTcpConnection()), Qt::UniqueConnection);
+        listening = mTcpServer.listen(QHostAddress::AnyIPv4, MACD_TCP_PORT);
+    }
+
+    if(listening) {
         mTcpPollTimer.stop();
         mKnownTcpConnections.clear();
         return;
@@ -115,7 +121,7 @@ void MacDService::checkViaExtendedTcpTable()
 
     for(DWORD i = 0; i < tcpTable->dwNumEntries; ++i) {
         const MIB_TCPROW_OWNER_PID& row = tcpTable->table[i];
-        const quint16 localPort = ntohs(static_cast<quint16>(row.dwLocalPort & 0xFFFF));
+        const quint16 localPort = ntohs(static_cast<quint16>(row.dwLocalPort));
         if(localPort != MACD_TCP_PORT || row.dwState != MIB_TCP_STATE_ESTAB) {
             continue;
         }
